@@ -229,6 +229,89 @@ For test coverage findings, verify test task existence:
 
 ---
 
+### TDD Order Verification
+
+For TDD ordering findings, verify task structure:
+
+```markdown
+## Finding: T-2 missing [after: UTx] dependency link
+
+### Verification Steps:
+1. Locate T-2 in backlog
+2. Check for corresponding UT task
+3. Verify [after:] syntax is present
+4. If missing, check if test is implicitly paired (same numbering)
+
+### Verdict: [VALID | FALSE_POSITIVE]
+
+### Evidence:
+- T-2 description: "Add validation logic [after: UT2]" ← Syntax present
+- OR: T-2 description: "Add validation logic" ← Missing syntax
+```
+
+```markdown
+## Finding: Tests listed after implementation (wrong TDD order)
+
+### Verification Steps:
+1. Check story structure for section ordering
+2. Verify "Tests First (RED)" appears before "Implementation (GREEN)"
+3. If no section headers, check task list ordering
+
+### Verdict: [VALID | FALSE_POSITIVE]
+
+### Evidence:
+- Section order: Implementation → Tests (WRONG)
+- OR: Section order: Tests → Implementation (CORRECT)
+```
+
+```markdown
+## Finding: Combined test-implementation task detected
+
+### Verification Steps:
+1. Read task description
+2. Check if task mentions both "test" and "implement" in same task
+3. Verify task cannot be split into RED and GREEN phases
+
+### Verdict: [VALID | FALSE_POSITIVE]
+
+### Evidence:
+- T-3 description: "Add user validation with tests" ← Combined (VIOLATION)
+- OR: Split tasks exist: UT3 + T3 ← Separate (OK)
+```
+
+```markdown
+## Finding: Integration test in RED section instead of INTEGRATION
+
+### Verification Steps:
+1. Locate IT task in backlog
+2. Check which section it appears in
+3. Verify it has [after: T...] dependencies
+
+### Verdict: [VALID | FALSE_POSITIVE]
+
+### Evidence:
+- IT1 location: "Tests First (RED)" section ← WRONG placement
+- IT1 dependencies: None ← Missing [after: T...]
+- OR: IT1 location: "Integration Tests (INTEGRATION)" section ← CORRECT
+```
+
+```markdown
+## Finding: Integration test missing implementation dependencies
+
+### Verification Steps:
+1. Locate IT task in backlog
+2. Check for [after: T...] syntax
+3. Verify referenced T tasks exist
+
+### Verdict: [VALID | FALSE_POSITIVE]
+
+### Evidence:
+- IT1 description: "Test full flow" ← No [after:] (VIOLATION)
+- OR: IT1 description: "Test full flow [after: T1, T2]" ← Has dependencies (OK)
+```
+
+---
+
 ## Validation Record Format
 
 Document each validation:
@@ -237,7 +320,7 @@ Document each validation:
 ### Validation [N]: Finding #[X] - [Brief Title]
 
 **Original Finding**:
-- Type: [INVEST-X | TEST-COVERAGE | REQUIREMENTS | etc.]
+- Type: [INVEST-X | TDD-ORDER | TEST-COVERAGE | REQUIREMENTS | etc.]
 - Issue: [Original issue description]
 - Suggested Fix: [Original suggestion]
 
@@ -335,12 +418,99 @@ Validation: Check for:
 - Acceptance test at story level
 ```
 
+### Pattern 4: TDD Order Dispute
+
+Finding claims wrong ordering, but structure is valid:
+
+```markdown
+Finding: Tests appear after implementation
+Validation: Check for:
+- Section headers that clarify order (RED before GREEN)
+- Dependency syntax [after: UTx] that enforces order
+- Implicit ordering through numbering (UT1 before T1)
+```
+
+### Pattern 5: Missing Dependency Link
+
+Finding claims missing `[after:]` syntax, but link exists:
+
+```markdown
+Finding: T-5 missing [after: UTx] link
+Validation: Check for:
+- Syntax present but in different format
+- Implicit pairing through matching IDs (UT5 ↔ T5)
+- Explicit note in task description
+```
+
+### Pattern 6: Combined Task Dispute
+
+Finding claims test and impl combined, but separation exists:
+
+```markdown
+Finding: "Implement X with tests" combines phases
+Validation: Check for:
+- Separate UT and T tasks in the actual backlog
+- Task description that only refers to impl (test mentioned elsewhere)
+- Story-level separation even if task-level unclear
+```
+
+### Pattern 7: IT Placement Dispute
+
+Finding claims IT in wrong section, but placement is valid:
+
+```markdown
+Finding: IT1 appears in RED section
+Validation: Check for:
+- Actual section headers (might be mislabeled)
+- IT task has [after: T...] dependencies (correct behavior even if section unclear)
+- Story-level structure that separates phases correctly
+```
+
+### Pattern 8: IT Dependency Dispute
+
+Finding claims IT missing dependencies, but they exist:
+
+```markdown
+Finding: IT1 missing [after: T...] dependencies
+Validation: Check for:
+- Dependencies in different format or syntax
+- Implicit ordering through task numbering
+- Story-level dependency declarations
+```
+
+### Pattern 9: Sprint Directory Frontmatter Dispute
+
+Finding claims frontmatter is invalid, but format is actually correct:
+
+```markdown
+Finding: UT1-1.md has invalid frontmatter
+Validation: Check for:
+- YAML syntax correctness (proper indentation, quoting)
+- Field names matching spec (id, status, section, story, depends_on)
+- List syntax for depends_on ([] for empty, [UT1-1] for single)
+- ID matching filename convention
+```
+
+### Pattern 10: Plan Quality Dispute
+
+Finding claims plan is too vague, but detail is sufficient:
+
+```markdown
+Finding: T1-1.md Plan section lacks detail
+Validation: Check for:
+- Numbered steps present (not just prose)
+- Steps reference specific files/modules
+- Steps are actionable without additional planning
+- Level of detail appropriate for the task complexity
+```
+
 ---
 
 ## Validation Checklist
 
 Before finalizing validation:
 
+### General
 - [ ] Each finding has been verified against actual backlog content
 - [ ] Status assignment includes supporting evidence
 - [ ] MERGED findings reference their primary finding
@@ -348,3 +518,17 @@ Before finalizing validation:
 - [ ] SCOPE_CREEP findings reference design scope limitations
 - [ ] VALID findings have clear, actionable next steps
 - [ ] Summary accurately counts findings by status
+
+### TDD-Specific (Three-Phase)
+- [ ] TDD-ORDER findings verified against actual task structure
+- [ ] Missing `[after:]` links confirmed not present (not just formatted differently)
+- [ ] Combined task findings verified to actually combine test+impl phases
+- [ ] Section ordering checked: RED → GREEN → INTEGRATION
+- [ ] IT tasks verified to be in INTEGRATION section (not RED)
+- [ ] IT tasks verified to have `[after: T...]` dependencies
+
+### Sprint Directory-Specific (when applicable)
+- [ ] Frontmatter findings verified against YAML spec
+- [ ] Plan quality findings verified against numbered-step requirement
+- [ ] Reference file findings verified against actual codebase
+- [ ] Sprint.md consistency findings verified against task files

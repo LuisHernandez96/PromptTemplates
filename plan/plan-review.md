@@ -9,6 +9,7 @@ This template provides review criteria for validating decomposed backlogs agains
 Reviews decomposed backlog items (from plan-decompose.md) to ensure:
 - Stories meet INVEST criteria
 - Test coverage is complete
+- **TDD ordering is correct** (tests listed before implementations)
 - All design requirements are covered
 - No scope creep or duplicates
 
@@ -29,6 +30,12 @@ Reviews decomposed backlog items (from plan-decompose.md) to ensure:
 |  +-----------------+                                   |
 |  | INVEST Check    | Check each story against          |
 |  | (per story)     | I-N-V-E-S-T criteria              |
+|  +--------+--------+                                   |
+|           |                                            |
+|           v                                            |
+|  +-----------------+                                   |
+|  | TDD Order       | Tests listed BEFORE impl?         |
+|  | Check           | [after: UTx] syntax present?      |
 |  +--------+--------+                                   |
 |           |                                            |
 |           v                                            |
@@ -186,50 +193,254 @@ Acceptance Criteria:
 
 ---
 
+### TDD Ordering Checks
+
+#### Three-Phase Structure
+
+Tasks must follow the three-phase TDD structure: RED → GREEN → INTEGRATION.
+
+**Check**:
+- [ ] "Tests First (RED)" section contains only UT tasks
+- [ ] "Implementation (GREEN)" section contains only T tasks
+- [ ] "Integration Tests (INTEGRATION)" section contains only IT tasks
+- [ ] Sections appear in order: RED → GREEN → INTEGRATION
+
+**Violation Example**:
+```markdown
+### Implementation (GREEN)
+- [ ] T1: Implement config loader
+- [ ] T2: Add validation
+
+### Tests First (RED)
+- [ ] UT1: Test config loading
+- [ ] UT2: Test validation
+```
+
+**Issue**: Implementation listed before tests - wrong TDD order
+
+**Fix**: Swap sections so Tests First (RED) comes before Implementation (GREEN)
+
+---
+
+#### Integration Tests in Correct Section
+
+IT tasks must be in the INTEGRATION section, not mixed with UT tasks in RED.
+
+**Check**:
+- [ ] No IT tasks in "Tests First (RED)" section
+- [ ] All IT tasks in "Integration Tests (INTEGRATION)" section
+- [ ] IT tasks have `[after: T...]` dependencies
+
+**Violation Example**:
+```markdown
+### Tests First (RED)
+- [ ] UT1: Test config loading
+- [ ] IT1: Test full flow  ← WRONG! IT can't run before T tasks exist
+```
+
+**Issue**: IT task in RED section - integration tests need implementations to exist first
+
+**Fix**:
+```markdown
+### Tests First (RED)
+- [ ] UT1: Test config loading
+
+### Implementation (GREEN)
+- [ ] T1: Implement config loader [after: UT1]
+
+### Integration Tests (INTEGRATION)
+- [ ] IT1: Test full flow [after: T1]
+```
+
+---
+
+#### Explicit Test-Implementation Pairing
+
+Implementation tasks must use `[after: UTx]` syntax to link to their tests.
+
+**Check**:
+- [ ] Every T-task has `[after: UTx]` suffix
+- [ ] Referenced UT task exists
+- [ ] No orphaned implementations without test links
+
+**Violation Example**:
+```markdown
+### Tests First (RED)
+- [ ] UT1: Test config loading
+- [ ] UT2: Test validation
+
+### Implementation (GREEN)
+- [ ] T1: Implement config loader
+- [ ] T2: Add validation logic
+```
+
+**Issue**: T1 and T2 missing `[after: UTx]` dependency links
+
+**Fix**:
+```markdown
+### Implementation (GREEN)
+- [ ] T1: Implement config loader [after: UT1]
+- [ ] T2: Add validation logic [after: UT2]
+```
+
+---
+
+#### No Combined Test-Implementation Tasks
+
+Tests and implementations must be separate tasks, not combined.
+
+**Check**:
+- [ ] No task that "implements X with tests"
+- [ ] Clear separation between RED (test) and GREEN (impl) phases
+
+**Violation Example**:
+```markdown
+- [ ] T1: Add user validation with tests
+```
+
+**Issue**: Combines test writing and implementation in single task - violates TDD phases
+
+**Fix**:
+```markdown
+- [ ] UT1: Test user validation rejects empty email
+- [ ] T1: Add email validation to User model [after: UT1]
+```
+
+---
+
+### Sprint Directory Structure Checks
+
+When reviewing a sprint directory (instead of flat TASK.md), verify:
+
+#### Frontmatter Consistency
+
+**Check**:
+- [ ] Every task file has valid YAML frontmatter with all required fields
+- [ ] `id` field matches the filename (e.g., `UT1-1.md` has `id: UT1-1`)
+- [ ] `status` is one of: `pending`, `in_progress`, `complete`
+- [ ] `section` matches TDD phase: `RED` for UT, `GREEN` for T, `INTEGRATION` for IT
+- [ ] `story` references a valid user story ID from `sprint.md`
+- [ ] `depends_on` references only task IDs that exist as files
+
+**Violation Example**:
+```markdown
+# File: UT1-1.md
+---
+id: UT-1-1          # Mismatch! Filename is UT1-1.md but id is UT-1-1
+status: waiting     # Invalid! Must be pending/in_progress/complete
+section: TEST       # Invalid! Must be RED/GREEN/INTEGRATION
+story: US-1
+depends_on: [UT99]  # UT99.md doesn't exist!
+---
+```
+
+---
+
+#### Sprint.md <-> Task File Consistency
+
+**Check**:
+- [ ] Every task in sprint.md Task Index has a corresponding `.md` file
+- [ ] Every `.md` file (except sprint.md) appears in the Task Index
+- [ ] Task descriptions in Task Index match `## Description` in task files
+- [ ] Dependencies in Task Index match `depends_on` frontmatter
+
+---
+
+#### Plan Quality
+
+**Check**:
+- [ ] `## Plan` contains numbered steps (not vague prose)
+- [ ] Steps reference specific files, functions, or modules
+- [ ] Steps are ordered logically (read before write, test setup before assertions)
+- [ ] Plan is executable without additional planning (agent shouldn't need `--plan-first`)
+
+**Violation Example**:
+```markdown
+## Plan
+Implement the config loader with proper error handling and tests.
+```
+
+**Issue**: Too vague -- a numbered step-by-step plan is required.
+
+**Fix**:
+```markdown
+## Plan
+1. Create `src/myapp/config/loader.py`
+2. Define `load_config(path: Path) -> Config` function
+3. Read YAML file with `yaml.safe_load()`
+4. Validate against `Config` dataclass
+5. Raise `ConfigNotFoundError` for missing files
+6. Raise `ConfigParseError` for invalid YAML
+```
+
+---
+
+#### Reference File Validity
+
+**Check**:
+- [ ] Reference files exist in the codebase
+- [ ] `:symbol` references point to real functions/classes
+- [ ] References are relevant to the task (not boilerplate)
+
+---
+
 ### Test Coverage Checks
 
 #### Implementation-Test Mapping
 
-Every implementation task must have corresponding test task(s).
+Every implementation task must have corresponding test task(s) with explicit `[after:]` links.
 
 **Check**:
 - [ ] Each T-task has at least one UT-task
-- [ ] Test task explicitly references which T-task(s) it covers
+- [ ] T-task uses `[after: UTx]` to reference its test
+- [ ] No implementation task lacks a corresponding test
 
 **Violation Example**:
 ```markdown
-Tasks:
-- T1: Implement config loader
-- T2: Add validation logic
-- T3: Create CLI parser
-- UT1: Test config loading (covers T1)
+### Tests First (RED)
+- [ ] UT1: Test config loading
+
+### Implementation (GREEN)
+- [ ] T1: Implement config loader [after: UT1]
+- [ ] T2: Add validation logic
+- [ ] T3: Create CLI parser
 ```
 
-**Issue**: T2 and T3 have no test coverage
+**Issue**: T2 and T3 have no test coverage and no `[after:]` links
 
 ---
 
 #### Integration Test Threshold
 
-Stories touching multiple components need integration tests.
+Stories touching multiple components need integration tests in the INTEGRATION section.
 
 **Check**:
 - [ ] Stories with 2+ components have IT-task(s)
+- [ ] IT-tasks are in "Integration Tests (INTEGRATION)" section
+- [ ] IT-tasks have `[after: T...]` dependencies on implementations
 - [ ] IT-tasks cover cross-component interactions
 
 **Violation Example**:
 ```markdown
 Components: CLI, Core Engine, API Client
 
-Tasks:
-- T1: Wire CLI to core
-- T2: Connect core to API
+### Tests First (RED)
 - UT1: Test CLI
 - UT2: Test core
 - UT3: Test API client
+
+### Implementation (GREEN)
+- T1: Wire CLI to core [after: UT1]
+- T2: Connect core to API [after: UT2, UT3]
 ```
 
 **Issue**: No IT-task despite 3 components interacting
+
+**Fix**: Add Integration Tests section:
+```markdown
+### Integration Tests (INTEGRATION)
+- IT1: Test CLI → Core → API flow [after: T1, T2]
+```
 
 ---
 
@@ -314,7 +525,7 @@ Document each issue found during review:
 ```markdown
 ### Finding [N]: [Brief Title]
 
-**Type**: INVEST-[I|N|V|E|S|T] | TEST-COVERAGE | REQUIREMENTS | SCOPE-CREEP | DUPLICATE
+**Type**: INVEST-[I|N|V|E|S|T] | TDD-ORDER | TEST-COVERAGE | REQUIREMENTS | SCOPE-CREEP | DUPLICATE
 
 **Location**: [Story ID or Task ID]
 
@@ -324,6 +535,17 @@ Document each issue found during review:
 
 **Suggested Fix**: [How to resolve]
 ```
+
+### TDD-ORDER Finding Types
+
+| Subtype | Description |
+|---------|-------------|
+| TDD-ORDER-SEQUENCE | Tests listed after implementation |
+| TDD-ORDER-MISSING-LINK | Implementation lacks `[after: UTx]` |
+| TDD-ORDER-COMBINED | Test and impl combined in single task |
+| TDD-ORDER-ORPHAN | `[after:]` references non-existent test |
+| TDD-ORDER-IT-MISPLACED | Integration test in RED section instead of INTEGRATION |
+| TDD-ORDER-IT-NO-DEPS | Integration test missing `[after: T...]` dependencies |
 
 ---
 
@@ -351,6 +573,13 @@ Document each issue found during review:
 | Small | X | Y | #2, #4 |
 | Testable | X | Y | #6 |
 
+### TDD Ordering
+- Tasks with correct order (tests before impl): X/Y (Z%)
+- Implementation tasks with `[after:]` links: X/Y (Z%)
+- IT tasks in INTEGRATION section (not RED): X/Y (Z%)
+- IT tasks with `[after: T...]` dependencies: X/Y (Z%)
+- Combined test-impl tasks (violations): X
+
 ### Test Coverage
 - Implementation tasks with tests: X/Y (Z%)
 - Stories with integration tests: X/Y (Z%)
@@ -362,6 +591,14 @@ Document each issue found during review:
 
 ### Scope Creep
 - Stories without requirement link: [List]
+
+### Sprint Directory Statistics (when reviewing sprint directory)
+- Task files: [N] total ([N] UT, [N] T, [N] IT)
+- Sprint.md Task Index entries: [N] (should match file count)
+- Files with valid frontmatter: [N]/[N]
+- Files with complete Plan sections: [N]/[N]
+- Files with Acceptance Criteria: [N]/[N]
+- Dependency references valid: [N]/[N]
 
 ### Findings
 [List of findings with verdicts]
@@ -377,11 +614,34 @@ Document each issue found during review:
 
 Quick checklist for reviewers:
 
+### INVEST
 - [ ] All stories have user-facing value (V)
 - [ ] No story larger than 3 days (S)
 - [ ] All acceptance criteria are measurable (T)
-- [ ] Every implementation task has test task (Coverage)
+
+### TDD Ordering (Three-Phase)
+- [ ] Unit tests (UT) in "Tests First (RED)" section
+- [ ] Implementations (T) in "Implementation (GREEN)" section
+- [ ] Integration tests (IT) in "Integration Tests (INTEGRATION)" section
+- [ ] Every T task has `[after: UTx]` dependency link
+- [ ] Every IT task has `[after: T...]` dependency links
+- [ ] No IT tasks mixed with UT tasks in RED section
+- [ ] No combined "implement with tests" tasks
+
+### Test Coverage
+- [ ] Every implementation task has test task
 - [ ] Multi-component stories have integration tests (IT threshold)
+- [ ] Edge cases from design are captured in test tasks
+
+### Requirements
 - [ ] All design requirements have stories (Traceability)
 - [ ] No stories outside design scope (Scope creep)
 - [ ] No duplicate stories (Dedup)
+
+### Sprint Directory (when applicable)
+- [ ] All task files have valid YAML frontmatter
+- [ ] Task IDs match filenames
+- [ ] Sprint.md Task Index matches individual files
+- [ ] Plan sections have numbered step-by-step instructions
+- [ ] Reference files exist in codebase
+- [ ] Dependencies form valid DAG (no cycles, all targets exist)
